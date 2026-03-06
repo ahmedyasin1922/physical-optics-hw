@@ -1,0 +1,68 @@
+
+clear; close all; clc;
+
+%% parameters
+lambda = 1e-6;          
+a = 1e-3;              
+z = 1000;              
+N = 1024;               
+T = 8e-3;               
+dx = T / N;             
+x = (-N/2 : N/2-1) * dx;
+[X, Y] = meshgrid(x, x);
+
+%% the aperture function 
+aperture = zeros(N);
+half_a = a / 2;
+inside = (abs(X) <= half_a) & (abs(Y) <= half_a);
+aperture(inside) = 1;
+
+figure;
+imagesc(x*1000, x*1000, aperture);
+axis image; colormap gray;
+xlabel('x (mm)'); ylabel('y (mm)');
+title('Aperture (square, 1 mm width)');
+
+%% 2D FFT 
+FT = fft2(aperture);           
+FT_shifted = fftshift(FT);      
+intensity = abs(FT_shifted).^2;
+
+%% frequency axes to physical coordinates in observation plane
+
+df = 1 / T;                     
+fx = (-N/2 : N/2-1) * df;       
+[Fx, Fy] = meshgrid(fx, fx);
+x_obs = lambda * z * fx;        
+[X_obs, Y_obs] = meshgrid(x_obs, x_obs);
+x_obs_mm = x_obs * 1000;
+
+%% plot 
+
+center_row = intensity(N/2+1, :);
+
+figure;
+plot(x_obs_mm, center_row / max(center_row), 'b-', 'LineWidth', 1.5);
+xlabel('x (mm)'); ylabel('Normalized intensity');
+title('1D slice of Fraunhofer pattern (y = 0)');
+grid on;
+
+figure;
+imagesc(x_obs_mm, x_obs_mm, log10(1 + intensity));  
+axis image; colormap gray;
+xlabel('x (mm)'); ylabel('y (mm)');
+title('Fraunhofer diffraction pattern (log scale)');
+colorbar;
+
+u = a * X_obs / (lambda * z);   
+v = a * Y_obs / (lambda * z);
+I_theory = (sinc(u).^2) .* (sinc(v).^2);  
+I_theory_slice = I_theory(N/2+1, :);
+
+figure;
+plot(x_obs_mm, center_row / max(center_row), 'b-', 'LineWidth', 1.5); hold on;
+plot(x_obs_mm, I_theory_slice, 'r--', 'LineWidth', 1.5);
+xlabel('x (mm)'); ylabel('Normalized intensity');
+title('Comparison with theoretical sinc^2 pattern');
+legend('Simulation', 'Theory');
+grid on;
